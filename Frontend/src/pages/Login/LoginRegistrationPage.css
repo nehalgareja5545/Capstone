@@ -1,0 +1,91 @@
+/* Custom CSS for Animations */
+
+.form-field {
+    position: relative;
+    margin-top: 1.5rem;
+  }
+  
+  .form-input {
+    width: 100%;
+    border: none;
+    border-bottom: 1px solid #ccc;
+    padding: 0.5rem 0;
+    font-size: 1rem;
+    background: transparent;
+    transition: border-color 0.3s;
+  }
+  
+  .form-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 0.5rem 0;
+    pointer-events: none;
+    color: #9ca3af;
+    transition: all 0.3s ease;
+  }
+  
+  .form-input:focus {
+    outline: none;
+    border-bottom-color: #3b82f6;
+  }
+  
+  .form-input:focus + .form-label,
+  .form-input:not(:placeholder-shown) + .form-label {
+    transform: translateY(-1.5rem);
+    font-size: 0.875rem;
+    color: #3b82f6;
+  }
+  
+  .underline-animation {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background-color: #3b82f6;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+  
+  .form-input:focus ~ .underline-animation {
+    transform: scaleX(1);
+  }
+  
+  /* Adjustments for Registration Form */
+  .registration-form .form-input:focus {
+    border-bottom-color: #10b981;
+  }
+  
+  .registration-form .form-input:focus + .form-label,
+  .registration-form .form-input:not(:placeholder-shown) + .form-label {
+    color: #10b981;
+  }
+  
+  .registration-form .underline-animation {
+    background-color: #10b981;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .form-container {
+      flex-direction: column;
+      padding: 2rem;
+    }
+  
+    .left-side {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid #e5e7eb;
+      padding-right: 0;
+      padding-bottom: 2rem;
+    }
+  
+    .right-side {
+      width: 100%;
+      padding-left: 0;
+      padding-top: 2rem;
+    }
+  }
