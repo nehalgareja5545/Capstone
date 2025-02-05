@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import connectDB from "./Config/database.js";
 import cors from "cors";
 dotenv.config();
 
@@ -14,6 +15,8 @@ app.use(
   })
 );
 app.use(express.json());
+
+connectDB();
 
 app.get("/", (req, res) => {
   res.send("Hello, World!");
