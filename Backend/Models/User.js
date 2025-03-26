@@ -1,4 +1,3 @@
-// models/User.js
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
@@ -13,13 +12,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, "Password is required"],
-    minlength: [6, "Password must be at least 6 characters"],
-  },
-  role: {
-    type: String,
-    enum: ["consumer", "service provider"],
-    required: [true, "Role is required"],
-    default: "consumer",
+    minlength: [8, "Password must be at least 8 characters"],
   },
   createdAt: {
     type: Date,

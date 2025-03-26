@@ -3,28 +3,34 @@ import Navbar from "../../shared/Navbar";
 import Footer from "../../shared/Footer";
 import getUser from "../../api/getUser";
 import AddExpenseForm from "../../components/AddExpenseForm";
-import getExpensesByGroupId from "../../api/getExpensesByGroupId";
-import formatDate from "../../api/formatDate";
 import getExpensesByUserId from "../../api/getExpensesByUserId";
+import formatDate from "../../api/formatDate";
 import { useNavigate } from "react-router";
 
 function ExpensePage() {
   const [userData, setUserData] = useState({});
-  const [expenses, setExpenses] = useState({});
+  const [expenses, setExpenses] = useState([]);
   const navigate = useNavigate();
-  useEffect(() => {
-    async function fetchData() {
-      const user = await getUser();
-      if (user && Object.keys(user).length > 0) {
-        setUserData(user);
-        const expenses = await getExpensesByUserId(user._id);
-        if (expenses && expenses.length > 0) {
-          setExpenses(expenses);
-        }
+
+  const fetchExpenses = async () => {
+    const user = await getUser();
+    if (user && Object.keys(user).length > 0) {
+      setUserData(user);
+      const expenses = await getExpensesByUserId(user._id);
+      if (expenses && Array.isArray(expenses)) {
+        setExpenses(expenses);
       }
     }
-    fetchData();
-  }, [expenses]);
+  };
+
+  useEffect(() => {
+    fetchExpenses();
+  }, []);
+
+  const handleExpenseAdded = () => {
+    // Re-fetch expenses when a new expense is added
+    fetchExpenses();
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">
@@ -53,7 +59,10 @@ function ExpensePage() {
         </section>
 
         {/* Add Expense Form */}
-        <AddExpenseForm userId={userData?._id} />
+        <AddExpenseForm
+          userId={userData?._id}
+          onExpenseAdded={handleExpenseAdded}
+        />
 
         {/* Expenses Section */}
         <section className="mb-12">
@@ -92,62 +101,6 @@ function ExpensePage() {
             )}
           </div>
         </section>
-
-        {/* <section className="mb-12">
-          <h3 className="text-2xl font-bold text-blue-600 mb-6">
-            Participants
-          </h3>
-          <div className="flex items-center mb-6">
-            <button className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-md hover:bg-blue-700 transition">
-              Select All
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {[1, 2].map((item) => (
-              <div
-                key={item}
-                className="bg-white shadow-md rounded-lg p-6 flex items-center hover:shadow-lg transition"
-              >
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                  <span className="text-xl font-semibold text-blue-600">
-                    {item}
-                  </span>
-                </div>
-                <div className="flex-grow">
-                  <p className="font-semibold">
-                    {item === 1 ? "Alice Smith" : "Bob Johnson"}
-                  </p>
-                  <p className="text-gray-500">Member</p>
-                </div>
-                <div>
-                  <p className="text-gray-700 font-semibold">$40</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="mb-12">
-          <h3 className="text-2xl font-bold text-blue-600 mb-6">
-            Split Method
-          </h3>
-          <div className="flex flex-wrap gap-4 mb-6">
-            <button className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-md hover:bg-blue-700 transition">
-              Even Split
-            </button>
-            <button className="px-6 py-2 bg-white text-blue-600 font-semibold rounded-md shadow-md hover:bg-gray-100 transition">
-              Custom Split
-            </button>
-          </div>
-          <div className="text-center">
-            <button
-              type="submit"
-              className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-md shadow-md hover:bg-blue-700 transition"
-            >
-              Save
-            </button>
-          </div>
-        </section> */}
       </main>
 
       {/* Footer */}

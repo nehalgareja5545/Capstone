@@ -19,11 +19,9 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        window.location.href = "http://localhost:5000/auth/google/signout";
-        window.location.href = "http://localhost:5000/auth/facebook/signout";
-      }
+      // const token = localStorage.getItem("token");
+      window.location.href = "http://localhost:5000/auth/google/signout";
+      // window.location.href = "http://localhost:5000/auth/facebook/signout";
       localStorage.removeItem("token");
       navigate("/login");
     } catch (error) {

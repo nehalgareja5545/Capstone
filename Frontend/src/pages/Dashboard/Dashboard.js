@@ -7,38 +7,72 @@ import getFilteredExpenses from "../../api/getFilteredExpenses";
 import formatDate from "../../api/formatDate";
 import AddExpenseForm from "../../components/AddExpenseForm";
 import Footer from "../../shared/Footer";
+import { Pie } from "react-chartjs-2";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
+
 const Dashboard = () => {
-  const [selectedCategory, setSelectedCategory] = useState("");
-
-  const categories = ["Food", "Travel", "Utilities"];
-
-  const handleCategorySelect = (category) => {
-    setSelectedCategory(category);
-  };
   const [userData, setuserData] = useState({});
-  const [userExpenses, setuserExpenses] = useState({});
+  const [userExpenses, setuserExpenses] = useState([]);
   const [userGroups, setuserGroups] = useState([]);
+  const [budgets, setBudgets] = useState([]);
+  const [totalBudget, setTotalBudget] = useState(0);
+  const [totalSpent, setTotalSpent] = useState(0);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    async function fetchData() {
-      const user = await getUser();
-      if (user && Object.keys(user).length > 0) {
-        setuserData(user);
-        const expenses = await getFilteredExpenses(user._id);
-        if (expenses && expenses.length > 0) {
-          setuserExpenses(expenses);
-        }
-        const groups = await getGroupsByUserId(user._id);
-        if (groups && groups.length > 0) {
-          setuserGroups(groups);
-        }
-      } else {
-        navigate("/login");
+  const fetchData = async () => {
+    const user = await getUser();
+    if (user && Object.keys(user).length > 0) {
+      setuserData(user);
+      const expenses = await getFilteredExpenses(user._id);
+      if (expenses && Array.isArray(expenses)) {
+        setuserExpenses(expenses);
       }
+      const groups = await getGroupsByUserId(user._id);
+      if (groups && Array.isArray(groups)) {
+        setuserGroups(groups);
+      }
+
+      // Fetch budgets
+      const budgetsResponse = await fetch(
+        `http://localhost:5000/budgets/user/${user?._id}`
+      );
+      const budgetsData = await budgetsResponse.json();
+
+      // Ensure budgetsData is an array
+      if (Array.isArray(budgetsData)) {
+        setBudgets(budgetsData);
+
+        // Calculate total budget
+        const total = budgetsData.reduce(
+          (acc, budget) => acc + budget.amount,
+          0
+        );
+        setTotalBudget(total);
+      } else {
+        console.error("Unexpected response format for budgets:", budgetsData);
+      }
+
+      // Calculate total spent
+      const totalSpentAmount = expenses.reduce(
+        (acc, expense) => acc + expense.amount,
+        0
+      );
+      setTotalSpent(totalSpentAmount);
+    } else {
+      navigate("/login");
     }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
+
+  const handleExpenseAdded = () => {
+    // Re-fetch data when a new expense is added
+    fetchData();
+  };
 
   async function handleExpenseClick(expense) {
     if (expense.groupId) {
@@ -48,15 +82,52 @@ const Dashboard = () => {
     }
   }
 
+  // Prepare data for the pie chart
+  const chartData = {
+    labels: [
+      ...(Array.isArray(budgets)
+        ? budgets.map((budget) => budget.category)
+        : []),
+      "Other",
+    ],
+    datasets: [
+      {
+        data: [
+          ...(Array.isArray(budgets)
+            ? budgets.map((budget) =>
+                userExpenses
+                  .filter((expense) => expense.category === budget.category)
+                  .reduce((acc, expense) => acc + expense.amount, 0)
+              )
+            : []),
+          userExpenses.reduce(
+            (acc, expense) =>
+              acc +
+              (budgets.some((b) => b.category === expense.category)
+                ? 0
+                : expense.amount),
+            0
+          ),
+        ],
+        backgroundColor: [
+          "#FF6384",
+          "#36A2EB",
+          "#FFCE56",
+          "#4BC0C0",
+          "#9966FF",
+          "#FF9F40",
+          "#C9CBCF",
+        ],
+      },
+    ],
+  };
+
   return (
     <div>
       <main className="bg-gray-50 min-h-screen">
-        {/* Navbar */}
         <Navbar />
 
-        {/* Main Content */}
         <section className="container mx-auto px-8 py-12">
-          {/* Welcome Banner */}
           <div className="bg-gradient-to-r from-blue-500 to-green-400 text-white shadow-md rounded-lg p-6 mb-12">
             <h2 className="text-3xl font-bold">
               Welcome{" "}
@@ -68,7 +139,6 @@ const Dashboard = () => {
             </p>
           </div>
 
-          {/* Overall Balance with Pie Chart */}
           <section className="mb-12">
             <h3 className="text-3xl font-bold text-blue-600 mb-8 text-center">
               Overall Balance
@@ -82,34 +152,38 @@ const Dashboard = () => {
                   </p>
                 </div>
                 <div className="flex justify-center">
-                  {/* Replace with actual pie chart component or image */}
-                  <img
-                    src="Images/pie_chart.png"
-                    alt="Balance Pie Chart"
-                    className="w-64 h-64"
-                  />
+                  <div style={{ width: "300px", height: "300px" }}>
+                    <Pie
+                      data={chartData}
+                      options={{ maintainAspectRatio: false }}
+                    />
+                  </div>
                 </div>
                 <div className="text-center md:text-right">
                   <p className="text-gray-600 mb-2">Net Balance</p>
-                  <p className="text-4xl font-bold text-green-500">$500</p>
+                  <p className="text-4xl font-bold text-green-500">
+                    ${totalBudget - totalSpent}
+                  </p>
                 </div>
               </div>
               <div className="flex justify-between border-t mt-8 pt-4">
                 <div className="flex-1 text-center border-r">
-                  <p className="text-gray-600 mb-2">Amount Owed</p>
-                  <p className="text-2xl font-bold text-red-500">$2,000</p>
+                  <p className="text-gray-600 mb-2">Total Budget</p>
+                  <p className="text-2xl font-bold text-blue-500">
+                    ${totalBudget}
+                  </p>
                 </div>
                 <div className="flex-1 text-center">
-                  <p className="text-gray-600 mb-2">Amount Due</p>
-                  <p className="text-2xl font-bold text-green-500">$1,500</p>
+                  <p className="text-gray-600 mb-2">Total Spent</p>
+                  <p className="text-2xl font-bold text-red-500">
+                    ${totalSpent}
+                  </p>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Recent Activities and Upcoming Settlements */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-            {/* Recent Activities */}
             <section>
               <h3 className="text-2xl font-bold text-blue-600 mb-4">
                 Recent Activities
@@ -151,7 +225,6 @@ const Dashboard = () => {
               </div>
             </section>
 
-            {/* Upcoming Settlements */}
             <section>
               <h3 className="text-2xl font-bold text-blue-600 mb-4">
                 Upcoming Settlements
@@ -193,7 +266,7 @@ const Dashboard = () => {
                         d="M4 5a1 1 0 011-1h9a1 1 0 100-2H5a3 3 0 00-3 3v9a1 1 0 102 0V5z"
                         clipRule="evenodd"
                       />
-                      <path d="M7 15a1 1 0 012 0v2.586L8.293 17.293a1 1 0 00-1.414 1.414l2.707 2.707A1 1 0 0010 21a1 1 0 00.707-.293l2.707-2.707a1 1 0 00-1.414-1.414L11 17.586V15a1 1 0 00-2 0v2.586L8.293 17.293a1 1 0 00-1.414 1.414l2.707 2.707A1 1 0 0010 21a1 1 0 00.707-.293l2.707-2.707a1 1 0 00-1.414-1.414L11 17.586V15a1 1 0 00-2 0z" />
+                      <path d="M7 15a1 1 0 012 0v2.586L8.293 17.293a1 1 0 00-1.414 1.414l2.707 2.707A1 1 0 0010 21a1 1 0 00.707-.293l2.707-2.707a1 1 0 00-1.414-1.414L11 17.586V15a1 1 0 00-2 0z" />
                     </svg>
                   </div>
                   <div>
@@ -207,13 +280,11 @@ const Dashboard = () => {
             </section>
           </div>
 
-          {/* Groups Overview */}
           <section className="mb-12">
             <h3 className="text-3xl font-bold text-blue-600 mb-8 text-center">
               Groups Overview
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-              {/* Group Card */}
               {userGroups &&
                 userGroups.length > 0 &&
                 userGroups.slice(0, 3).map((item) => (
@@ -238,21 +309,21 @@ const Dashboard = () => {
                     >
                       See Group Details
                     </Link>
-                    {/* <p className="text-2xl font-bold text-green-500 mt-2">See Group Details</p> */}
                   </div>
                 ))}
             </div>
           </section>
 
-          <AddExpenseForm userId={userData._id} />
+          <AddExpenseForm
+            userId={userData._id}
+            onExpenseAdded={handleExpenseAdded}
+          />
 
-          {/* Budgets Overview */}
           <section className="mb-12">
             <h3 className="text-3xl font-bold text-blue-600 mb-8 text-center">
               Budgets Overview
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Budget Card */}
               <div className="bg-white shadow-md rounded-lg p-6 flex items-center hover:shadow-lg transition-shadow duration-300">
                 <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center mr-4">
                   <img
