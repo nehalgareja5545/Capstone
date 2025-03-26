@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "./LoginRegistrationPage.css";
 import Footer from "../../shared/Footer";
+import { useNavigate } from "react-router";
 
 function LoginRegistrationPage() {
   // State for the login form
@@ -12,7 +13,7 @@ function LoginRegistrationPage() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginErrors, setLoginErrors] = useState({});
-
+  const navigate = useNavigate();
   // State for the registration form
   const [regData, setRegData] = useState({
     email: "",
@@ -49,7 +50,7 @@ function LoginRegistrationPage() {
       );
       const data = response.data;
       localStorage.setItem("token", data.token);
-      window.location.href = "/dashboard";
+      navigate("/dashboard");
     } catch (error) {
       setLoginLoading(false);
       if (error.response && error.response.data) {
@@ -90,14 +91,14 @@ function LoginRegistrationPage() {
     }
 
     try {
-      const response = await axios.post("http://localhost:5000/signup", {
+      const response = await axios.post("http://localhost:5000/auth/signup", {
         email: regData.email,
         password: regData.password,
       });
 
       const data = response.data;
       localStorage.setItem("token", data.token);
-      window.location.href = "/dashboard";
+      navigate("/dashboard");
     } catch (error) {
       setRegLoading(false);
       if (error.response && error.response.data) {
@@ -152,11 +153,11 @@ function LoginRegistrationPage() {
             <a href="/" className="text-white hover:text-gray-200">
               Contact
             </a>
-            <input
+            {/* <input
               type="text"
               placeholder="Search in site"
               className="border border-gray-300 rounded px-2 py-1 text-black"
-            />
+            /> */}
           </nav>
           {/* Mobile Menu Button */}
           <button className="text-white md:hidden">
