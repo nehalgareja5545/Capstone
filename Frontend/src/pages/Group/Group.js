@@ -16,19 +16,25 @@ function GroupPage() {
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
 
-  useEffect(() => {
-    async function fetchData() {
-      const user = await getUser();
-      if (Object.keys(user).length > 0) {
-        setuserData(user);
-      }
-      const groups = await getGroupsByUserId(user._id);
-      if (groups && groups.length > 0) {
-        setuserGroups(groups);
-      }
+  const fetchGroups = async () => {
+    const user = await getUser();
+    if (Object.keys(user).length > 0) {
+      setuserData(user);
     }
-    fetchData();
-  }, [userGroups]);
+    const groups = await getGroupsByUserId(user._id);
+    if (groups && groups.length > 0) {
+      setuserGroups(groups);
+    }
+  };
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  const handleGroupAdded = () => {
+    // Re-fetch groups when a new group is added
+    fetchGroups();
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">
@@ -88,7 +94,11 @@ function GroupPage() {
             </div>
           </section>
         )}
-        <AddGroupModal isOpen={isModalOpen} onClose={closeModal} />
+        <AddGroupModal
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          onGroupAdded={handleGroupAdded}
+        />
       </main>
 
       {/* Footer */}

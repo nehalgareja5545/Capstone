@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import authRoutes from "./Routes/AuthRoutes.js";
 import connectDB from "./Config/database.js";
 import middleware from "./middleware/middleware.js";
+import groupRoutes from "./Routes/GroupRoutes.js";
 import expenseRoutes from "./Routes/expenseRoutes.js";
 import paymentRoutes from "./Routes/PaymentRoutes.js";
 import balanceRoutes from "./Routes/BalanceRoutes.js";
@@ -20,6 +21,7 @@ middleware(app);
 connectDB();
 
 app.use("/auth", authRoutes);
+app.use("/groups", groupRoutes);
 app.use("/expenses", expenseRoutes);
 app.use("/payments", paymentRoutes);
 app.use("/balances", balanceRoutes);
