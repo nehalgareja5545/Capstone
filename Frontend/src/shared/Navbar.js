@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import getUser from "../api/getUser";
+import { getCloudinaryImageUrl } from "../api/getCloudinaryImageUrl";
 
 const Navbar = () => {
   const [userData, setuserData] = useState([]);
@@ -34,14 +35,23 @@ const Navbar = () => {
     <header className="bg-white shadow-md">
       <div className="container mx-auto px-4 sm:px-8 py-4 flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-            {userData?.email?.split("@")[0].slice(0, 2).toUpperCase()}
-          </div>
+          {userData?.profilePicture ? (
+            <img
+              src={getCloudinaryImageUrl(userData.profilePicture)}
+              alt="Profile"
+              className="w-10 h-10 rounded-full object-cover border-2"
+            />
+          ) : (
+            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+              {userData?.email?.split("@")[0].slice(0, 2).toUpperCase()}
+            </div>
+          )}
           <h1 className="text-lg sm:text-2xl font-bold text-blue-600">
             {userData.email && userData.email.replace("@gmail.com", "'s ")}
             Dashboard
           </h1>
         </div>
+
         <div className="sm:hidden">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
