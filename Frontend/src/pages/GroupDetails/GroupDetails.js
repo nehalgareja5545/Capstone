@@ -5,7 +5,6 @@ import Footer from "../../shared/Footer";
 import AddExpenseForm from "../../components/AddExpenseForm";
 import getUser from "../../api/getUser";
 import getGroupById from "../../api/getGroupById";
-import getExpensesByGroupId from "../../api/getExpensesByGroupId";
 import formatDate from "../../api/formatDate";
 
 export const GroupDetails = () => {
