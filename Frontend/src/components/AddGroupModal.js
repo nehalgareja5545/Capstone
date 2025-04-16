@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import getUser from "../api/getUser";
 
-const AddGroupModal = ({ isOpen, onClose }) => {
+const AddGroupModal = ({ isOpen, onClose, onGroupAdded }) => {
   const [groupName, setGroupName] = useState("");
-  const [participants, setParticipants] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
   const [userData, setUserData] = useState({});
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     async function getUserDetails() {
@@ -16,12 +19,28 @@ const AddGroupModal = ({ isOpen, onClose }) => {
     getUserDetails();
   }, []);
 
-  const handleCreate = async () => {
-    console.log(userData);
-    const participantList = participants.split(",").map((p) => p.trim());
+  const handleSearch = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/user/search?query=${searchQuery}`
+      );
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.error("Error searching users:", error);
+    }
+  };
+
+  const handleSelectUser = (user) => {
+    if (!selectedUsers.some((u) => u._id === user._id)) {
+      setSelectedUsers((prev) => [...prev, user]);
+    }
+  };
+
+  const handleCreateGroup = async () => {
     const groupData = {
       name: groupName,
-      participants: participantList,
+      participants: selectedUsers.map((user) => user._id),
       userId: userData._id || "",
     };
 
@@ -35,13 +54,21 @@ const AddGroupModal = ({ isOpen, onClose }) => {
       });
 
       if (response.ok) {
-        console.log("Group created successfully");
-        onClose(); // Close the modal
+        setMessage("Group created successfully!");
+        setGroupName("");
+        setSelectedUsers([]);
+        onClose(); // Close the modal after successful creation
+
+        // Call the callback function to update the group list
+        if (onGroupAdded) {
+          onGroupAdded();
+        }
       } else {
-        console.error("Failed to create group");
+        setMessage("Failed to create group");
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error creating group:", error);
+      setMessage("Server error creating group.");
     }
   };
 
@@ -62,16 +89,43 @@ const AddGroupModal = ({ isOpen, onClose }) => {
         </div>
         <div className="mb-4">
           <label className="block text-gray-700 font-semibold mb-2">
-            Participants
+            Search Users
           </label>
           <input
             type="text"
-            value={participants}
-            onChange={(e) => setParticipants(e.target.value)}
-            placeholder="Enter participants separated by commas"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search users by name or email"
             className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:border-blue-500"
           />
+          <button
+            onClick={handleSearch}
+            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+          >
+            Search
+          </button>
+          <ul className="mt-2">
+            {searchResults.map((user) => (
+              <li key={user._id} className="flex justify-between items-center">
+                {user.name} ({user.email})
+                <button
+                  onClick={() => handleSelectUser(user)}
+                  className="ml-2 px-2 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 transition"
+                >
+                  Add
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
+        <h3 className="text-lg font-bold mb-2">Selected Users</h3>
+        <ul className="mb-4">
+          {selectedUsers.map((user) => (
+            <li key={user._id}>
+              {user.name} ({user.email})
+            </li>
+          ))}
+        </ul>
         <div className="flex justify-end space-x-4">
           <button
             onClick={onClose}
@@ -80,12 +134,13 @@ const AddGroupModal = ({ isOpen, onClose }) => {
             Cancel
           </button>
           <button
-            onClick={handleCreate}
+            onClick={handleCreateGroup}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
           >
             Create
           </button>
         </div>
+        {message && <p className="mt-4 text-center">{message}</p>}
       </div>
     </div>
   );

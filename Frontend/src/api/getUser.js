@@ -7,7 +7,7 @@ const getUser = async () => {
       "http://localhost:5000/auth/google/session",
       {
         method: "GET",
-        credentials: "include", // Important for Auth.js cookies
+        credentials: "include",
       }
     );
 
@@ -15,8 +15,28 @@ const getUser = async () => {
     if (authSessionResponse.ok) {
       const session = await authSessionResponse.json();
       if (session?.user) {
-        // console.log(session.user.email);
-        return session.user;
+        // Fetch user by email
+        const response = await fetch(
+          `http://localhost:5000/user/email/${session.user.email}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch user data");
+        }
+
+        const userData = await response.json();
+        console.log(userData);
+
+        // Store the token in localStorage
+        if (userData.token) {
+          localStorage.setItem("token", userData.token);
+        }
+
+        return userData; // Return the fetched user data
       }
     }
 
@@ -33,14 +53,17 @@ const getUser = async () => {
     console.log("JWT userId:", userId);
 
     if (userId) {
-      const response = await fetch(`http://localhost:5000/user/${userId}`, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(
+        `http://localhost:5000/user/userid/${userId}`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch user data");
