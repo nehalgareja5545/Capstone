@@ -10,11 +10,12 @@ import formatDate from "../../api/formatDate";
 
 export const GroupDetails = () => {
   const { groupId } = useParams();
-  const [, setuserData] = useState([]);
+  const [userData, setUserData] = useState({});
   const [group, setGroup] = useState({});
   const [expenses, setExpenses] = useState([]);
   const [balances, setBalances] = useState({});
   const [participantDetails, setParticipantDetails] = useState({});
+  const [settledPayments, setSettledPayments] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -23,103 +24,116 @@ export const GroupDetails = () => {
   const { name, participants } = group;
 
   const fetchData = async () => {
-    const user = await getUser();
-    if (user && Object.keys(user).length > 0) {
-      setuserData(user);
-    }
-    const group = await getGroupById(groupId);
-    if (group && Object.keys(group).length > 0) {
-      setGroup(group);
-      await fetchParticipantDetails(group.participants);
-    }
-    const expenses = await getExpensesByGroupId(groupId);
-    if (expenses && expenses.length > 0) {
-      setExpenses(expenses);
-      calculateBalances(expenses, group.participants);
+    try {
+      // Get current user
+      const user = await getUser();
+      if (user && Object.keys(user).length > 0) {
+        setUserData(user);
+      }
+
+      // Get group details
+      const grp = await getGroupById(groupId);
+      if (grp && Object.keys(grp).length > 0) {
+        setGroup(grp);
+        await fetchParticipantDetails(grp.participants);
+      }
+
+      // Get all expenses (settled + unsettled)
+      const response = await fetch(
+        `http://localhost:5000/expenses/group/${groupId}`
+      );
+      const allExpenses = await response.json();
+
+      if (Array.isArray(allExpenses)) {
+        const unsettled = allExpenses.filter((e) => !e.settled);
+        const settled = allExpenses.filter((e) => e.settled);
+
+        setExpenses(unsettled);
+        setSettledPayments(settled);
+        calculateBalances(unsettled, grp.participants);
+      }
+    } catch (error) {
+      console.error("Error in fetchData:", error);
     }
   };
+
+  // const fetchSettledPayments = async () => {
+  //   if (userData && userData._id) {
+  //     try {
+  //       const response = await fetch(
+  //         `http://localhost:5000/payments/settled?groupId=${groupId}&userId=${userData._id}`
+  //       );
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         setSettledPayments(data);
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching settled payments:", error);
+  //     }
+  //   }
+  // };
 
   useEffect(() => {
     fetchData();
   }, [groupId]);
 
+  // useEffect(() => {
+  //   fetchSettledPayments();
+  // }, [groupId, userData]);
+
   const fetchParticipantDetails = async (participantIds) => {
     try {
-      console.log("Participant IDs:", participantIds);
-
       const details = await Promise.all(
         participantIds.map(async (id) => {
           try {
-            const user = await getUserByIdOrEmail(id);
-            console.log("Fetched user:", user);
-            return { id, name: user.username || user.email };
+            const response = await fetch(
+              `http://localhost:5000/user/userid/${id}`
+            );
+            if (response.ok) {
+              const user = await response.json();
+              return { id, name: user.username || user.email };
+            }
+            const emailResponse = await fetch(
+              `http://localhost:5000/user/email/${id}`
+            );
+            if (emailResponse.ok) {
+              const user = await emailResponse.json();
+              return { id, name: user.username || user.email };
+            }
+            throw new Error("User not found");
           } catch (userError) {
-            console.error(`Error fetching user for ID ${id}:`, userError);
-            return { id, name: null }; // Handle error case for individual user
+            return { id, name: null };
           }
         })
       );
-
-      console.log("Details array:", details);
-
       const detailsMap = details.reduce((acc, { id, name }) => {
-        console.log("Mapping detail:", id, name);
         acc[id] = name;
         return acc;
       }, {});
-
       setParticipantDetails(detailsMap);
-    } catch (error) {
-      console.error("Error fetching participant details:", error);
-    }
-  };
-
-  const getUserByIdOrEmail = async (idOrEmail) => {
-    try {
-      const response = await fetch(
-        `http://localhost:5000/user/userid/${idOrEmail}`
-      );
-      if (response.ok) {
-        return await response.json();
-      }
-      const emailResponse = await fetch(
-        `http://localhost:5000/user/email/${idOrEmail}`
-      );
-      if (emailResponse.ok) {
-        return await emailResponse.json();
-      }
-      throw new Error("User not found");
-    } catch (error) {
-      console.error("Error fetching user by ID or email:", error);
-      throw error;
-    }
+    } catch (error) {}
   };
 
   const calculateBalances = (expenses, participants) => {
     const balanceSheet = {};
-
     participants.forEach((participant) => {
       balanceSheet[participant] = 0;
     });
-
     expenses.forEach((expense) => {
       const { amount, payerName, splitBetween } = expense;
       const splitAmount = amount / splitBetween.length;
-
       balanceSheet[payerName] = (balanceSheet[payerName] || 0) - amount;
-
       splitBetween.forEach((participant) => {
         balanceSheet[participant] =
           (balanceSheet[participant] || 0) + splitAmount;
       });
     });
-
     setBalances(balanceSheet);
   };
 
   const handleExpenseAdded = () => {
-    // Re-fetch data when a new expense is added
     fetchData();
+    // fetchSettledPayments();
   };
 
   const handleSearch = async () => {
@@ -129,9 +143,7 @@ export const GroupDetails = () => {
       );
       const data = await response.json();
       setSearchResults(data);
-    } catch (error) {
-      console.error("Error searching users:", error);
-    }
+    } catch (error) {}
   };
 
   const handleSelectUser = (user) => {
@@ -147,24 +159,40 @@ export const GroupDetails = () => {
         `http://localhost:5000/groups/${groupId}/addMembers`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ newMembers }),
         }
       );
-
       if (response.ok) {
         const updatedGroup = await response.json();
         setGroup(updatedGroup);
         await fetchParticipantDetails(updatedGroup.participants);
         setIsModalOpen(false);
         setSelectedUsers([]);
-      } else {
-        console.error("Failed to add members to group");
       }
-    } catch (error) {
-      console.error("Error adding members to group:", error);
+    } catch (error) {}
+  };
+
+  const handleSettleBalances = async () => {
+    if (groupId && userData._id) {
+      try {
+        const response = await fetch(
+          `http://localhost:5000/balances/settle/${groupId}/${userData._id}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: userData._id }),
+          }
+        );
+        if (response.ok) {
+          alert("Balance settled successfully!");
+          fetchData();
+        } else {
+          alert("Failed to settle balance. Please try again.");
+        }
+      } catch (error) {
+        alert("Error settling balance.");
+      }
     }
   };
 
@@ -173,7 +201,6 @@ export const GroupDetails = () => {
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">
       <Navbar />
-
       <main className="container mx-auto px-6 py-12 flex-grow">
         <section className="bg-gradient-to-r from-blue-500 to-green-400 text-white shadow-md rounded-lg p-8 mb-12">
           <h2 className="text-3xl font-bold">{name}</h2>
@@ -195,7 +222,6 @@ export const GroupDetails = () => {
             </button>
           </div>
         </section>
-
         <section className="mb-12">
           <h3 className="text-2xl font-bold text-blue-600 mb-6">Expenses</h3>
           <div className="space-y-6">
@@ -232,7 +258,6 @@ export const GroupDetails = () => {
             )}
           </div>
         </section>
-
         <section className="mb-12">
           <h3 className="text-2xl font-bold text-blue-600 mb-6">Members</h3>
           <div className="space-y-6">
@@ -246,7 +271,6 @@ export const GroupDetails = () => {
                       ? Math.abs(balances[participant])
                       : Math.abs(balances[participant]).toFixed(2)
                     : null;
-
                 return (
                   <div
                     key={index}
@@ -270,7 +294,6 @@ export const GroupDetails = () => {
               })}
           </div>
         </section>
-
         {balances && Object.keys(balances).length > 0 && (
           <section className="mb-12">
             <h3 className="text-2xl font-bold text-blue-600 mb-6">
@@ -296,26 +319,55 @@ export const GroupDetails = () => {
             </div>
           </section>
         )}
-
         <AddExpenseForm
           groupId={group._id}
           participants={participants}
           onExpenseAdded={handleExpenseAdded}
         />
-
-        <section className="bg-gray-100 p-8 rounded-lg shadow-md text-center">
+        <section className="bg-gray-100 p-8 rounded-lg shadow-md text-center mb-6">
           <p className="text-gray-700 mb-4">
             Ready to settle your balances with group members?
           </p>
-          <button className="px-6 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 transition">
+          <button
+            onClick={handleSettleBalances}
+            className="px-6 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 transition"
+          >
             Settle Balances
           </button>
         </section>
+        <section className="mb-12">
+          <h3 className="text-2xl font-bold text-blue-600 mb-4">
+            Settled Balances History
+          </h3>
+          {settledPayments.length === 0 ? (
+            <div className="bg-white shadow-md rounded-lg p-6 text-center">
+              <p className="text-gray-700">No settled balances found.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {settledPayments.map((expense) => (
+                <div
+                  key={expense._id}
+                  className="bg-white shadow-md rounded-lg p-6 flex justify-between items-center hover:shadow-lg transition"
+                >
+                  <div>
+                    <p className="font-semibold">{expense.description}</p>
+                    <p className="text-gray-600">
+                      Paid By{" "}
+                      {participantDetails[expense.payerName] ||
+                        expense.payerName}
+                    </p>
+                  </div>
+                  <p className="text-gray-800 font-semibold">
+                    ${expense.amount}, {formatDate(expense.createdAt)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </main>
-
       <Footer />
-
-      {/* Inline Add Member Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
           <div className="bg-white rounded-lg shadow-lg p-6 w-96">
@@ -382,5 +434,4 @@ export const GroupDetails = () => {
     </div>
   );
 };
-
 export default GroupDetails;

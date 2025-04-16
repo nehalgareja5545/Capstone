@@ -1,5 +1,7 @@
 import Expense from "../models/Expense.js";
 import Group from "../models/Group.js";
+import Notification from "../models/Notification.js";
+import User from "../models/User.js";
 
 export const createExpense = async (req, res) => {
   try {
@@ -32,18 +34,30 @@ export const createExpense = async (req, res) => {
     const newExpense = new Expense(newExpenseData);
     await newExpense.save();
 
-    // Optional: Update balances if needed
-    // const splitCount = splitBetween.length;
-    // const shareAmount = amount / splitCount;
-    // for (const userId of splitBetween) {
-    //   if (userId === payerId) continue;
-    //   let balance = await Balance.findOne({ userId, groupId });
-    //   if (!balance) {
-    //     balance = new Balance({ userId, groupId, amountOwed: 0, amountDue: 0 });
-    //   }
-    //   balance.amountOwed += shareAmount;
-    //   await balance.save();
-    // }
+    const user = await User.findById(userId);
+    if (user) {
+      const message = `You added an expense: "${description}"`;
+
+      await new Notification({
+        message,
+        userIds: [user._id],
+      }).save();
+    }
+
+    if (Array.isArray(splitBetween) && splitBetween.length > 0) {
+      const otherParticipants = splitBetween.filter(
+        (id) => id !== userId && id !== String(userId) && id !== "You"
+      );
+
+      if (otherParticipants.length > 0) {
+        const message = `You've been added to an expense: "${description}"`;
+
+        await new Notification({
+          message,
+          userIds: otherParticipants,
+        }).save();
+      }
+    }
 
     res.status(201).json({ msg: "Expense Saved!" });
   } catch (error) {
